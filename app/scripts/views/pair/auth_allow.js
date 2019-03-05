@@ -3,6 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 import { assign } from 'underscore';
+import AuthErrors from '../../lib/auth-errors';
 import Cocktail from 'cocktail';
 import DeviceBeingPairedMixin from './device-being-paired-mixin';
 import FormView from '../form';
@@ -17,7 +18,26 @@ class PairAuthAllowView extends FormView {
   });
 
   initialize () {
+    const account = this.getSignedInAccount();
+
     this.listenTo(this.broker, 'error', this.displayError);
+
+    if (! account) {
+      this.replaceCurrentPage('pair/failure', {
+        error: AuthErrors.toError('UNKNOWN_ACCOUNT'),
+      });
+    }
+
+    return account.checkTotpTokenExists().then((result) => {
+      // pairing is disabled for accounts with 2FA
+      if (result.exists) {
+        this.replaceCurrentPage('pair/failure', {
+          error: AuthErrors.toError('TOTP_PAIRING_NOT_SUPPORTED'),
+        });
+      }
+    });
+
+
   }
 
   submit () {
